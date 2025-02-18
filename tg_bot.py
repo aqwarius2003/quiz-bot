@@ -1,10 +1,14 @@
-import os
 import logging
+import os
+import random
+
+import redis
 from dotenv import load_dotenv
 from telegram import Update, ReplyKeyboardMarkup
-from telegram.ext import Updater, MessageHandler, Filters, CallbackContext, CommandHandler
 from telegram.ext import ConversationHandler
-from quiz_logic import get_random_question, load_new_qa_file, QUESTIONS
+from telegram.ext import Updater, MessageHandler, Filters, CallbackContext, CommandHandler
+
+from quiz_logic import get_random_question, get_stored_question, get_answer, check_answer
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +24,7 @@ def build_menu():
 def start(update: Update, context: CallbackContext):
     """Приветственное сообщение при старте."""
     update.message.reply_text(
-        'Здравствуйте! Я бот, который проведет для вас викторину.\n'
+        'Здравствуйте!\nЯ бот, который проведет для вас викторину.\n'
         'Нажмите "Новый вопрос", чтобы начать.',
         reply_markup=build_menu()
     )
@@ -29,36 +33,59 @@ def start(update: Update, context: CallbackContext):
 
 
 def handle_new_question_request(update: Update, context: CallbackContext):
-    """Выдает новый случайный вопрос и запоминает его."""
-    question, answer = get_random_question()
+    """Выдает новый случайный вопрос пользователю и сохраняет его в Redis."""
+    db_connection = context.bot_data['redis_connection']
+    user_id = update.message.chat_id
+
+    question, answer = get_random_question(db_connection, user_id)
 
     if not question:
-        update.message.reply_text("Вопросы закончились или не загружены.")
+        update.message.reply_text("Не удалось загрузить вопрос.")
         return ANSWERING
-
-    context.user_data["last_question"] = question  # Сохраняем текущий вопрос
-    context.user_data["last_answer"] = answer  # Сохраняем текущий ответ
 
     update.message.reply_text(question)
     return ANSWERING
 
 
 def give_up(update: Update, context: CallbackContext):
-    """Показывает правильный ответ, если пользователь сдается."""
-    last_question = context.user_data.get("last_question")
-    last_answer = context.user_data.get("last_answer")
+    """Показывает правильный ответ, если пользователь сдается, и дает новый вопрос."""
+    db_connection = context.bot_data['redis_connection']
+    user_id = update.message.chat_id
 
-    if last_question and last_answer:
-        update.message.reply_text(last_answer)
-        context.user_data["last_question"] = None  # Сбрасываем текущий вопрос
-        context.user_data["last_answer"] = None  # Сбрасываем текущий ответ
+    question = get_stored_question(db_connection, user_id)
+    answer = get_answer(db_connection, question) if question else None
+
+    if question and answer:
+        update.message.reply_text(f'Правильный ответ:\n "{answer}"')
     else:
-        update.message.reply_text("Сначала получите вопрос! Нажмите 'Новый вопрос'.")
+        update.message.reply_text("Вы не получали вопрос. Нажмите 'Новый вопрос'")
+
+    return handle_new_question_request(update, context)
+
+def show_score(update: Update, context: CallbackContext):
+    update.message.reply_text("Вы лидируете")
+    return ANSWERING
 
 
 def handle_solution_attempt(update: Update, context: CallbackContext):
-    """Пока просто заглушка – в будущем здесь будет проверка ответа."""
-    update.message.reply_text("Ваш ответ принят!")
+    user_answer = update.message.text
+    db_connection = context.bot_data['redis_connection']
+    user_id = update.message.chat_id
+
+    # Получаем сохранённый вопрос и правильный ответ
+    question = get_stored_question(db_connection, user_id)
+    correct_answer = get_answer(db_connection, question) if question else None
+
+    if not question or not correct_answer:
+        update.message.reply_text("Вы не получали вопрос. Нажмите 'Новый вопрос'.")
+        return ANSWERING
+
+    if check_answer(user_answer, correct_answer):
+        update.message.reply_text(f'Правильно! Поздравляем.\n'
+                                  f'Правильный ответ:\n{correct_answer}', reply_markup=build_menu())
+    else:
+        update.message.reply_text("Неправильно. Попробуйте ещё раз или нажмите 'Сдаться'.")
+
     return ANSWERING
 
 
@@ -70,6 +97,7 @@ def setup_handlers(dispatcher):
             ANSWERING: [
                 MessageHandler(Filters.regex(r'^Новый вопрос$'), handle_new_question_request),
                 MessageHandler(Filters.regex(r'^Сдаться$'), give_up),
+                MessageHandler(Filters.regex(r'^Мой счет$'), show_score),
                 MessageHandler(Filters.text & ~Filters.command, handle_solution_attempt),
             ]
         },
@@ -86,6 +114,9 @@ def main():
 
     try:
         tg_bot_token = os.environ['TG_BOT_TOKEN']
+        redis_address = os.environ["REDIS_ADDRESS"]
+        redis_port = os.environ["REDIS_PORT"]
+        redis_password = os.environ['REDIS_PASSWORD']
     except KeyError as error:
         logger.error(f'Переменные окружения не найдены. Ошибка: {error}')
         return
@@ -94,15 +125,28 @@ def main():
     logger.info("Бот запущен")
 
     # Изначальная загрузка вопросов
-    load_new_qa_file()
-
     try:
+        redis_connect = redis.Redis(
+            host=redis_address,
+            port=redis_port,
+            password=redis_password,
+            decode_responses=True,
+        )
+        # Удаляем все данные в Redis)
+        redis_connect.flushall()
+        # Загружаем вопросы в память
+        questions_and_answers = redis_connect.hgetall("questions")
+
         updater = Updater(tg_bot_token, use_context=True)
         dispatcher = updater.dispatcher
 
+        # Сохраняем Redis и вопросы в bot_data
+        dispatcher.bot_data['redis_connection'] = redis_connect
+        dispatcher.bot_data['questions_and_answers'] = questions_and_answers
+
         setup_handlers(dispatcher)
 
-        updater.start_polling(timeout=20)
+        updater.start_polling()
         updater.idle()
     except Exception as e:
         logger.exception(e)
