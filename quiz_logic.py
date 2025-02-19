@@ -48,7 +48,7 @@ def preparing_questions(filename) -> dict:
 
 def load_new_qa_file(redis_connect):
     """Загружает новый файл с вопросами и обновляет их в Redis."""
-    file_with_qa = get_random_txt_file(os.path.join(os.path.dirname(__file__), "QA_FOLDER"))
+    file_with_qa = get_random_txt_file(os.path.join(os.path.dirname(__file__), 'data', "QA_FOLDER"))
     questions_dict = preparing_questions(file_with_qa)
 
     # Перезаписываем вопросы в Redis (без удаления всей записи)
