@@ -75,21 +75,6 @@ def get_random_question(redis_connect, user_id):
     return question, questions[question]
 
 
-def get_stored_question(redis_connect, user_id):
-    """Получает сохраненный вопрос пользователя."""
-    return redis_connect.get(f"user:{user_id}:question")
-
-
-def get_answer(redis_connect, question):
-    """Получает правильный ответ на вопрос."""
-    return redis_connect.hget("questions", question)
-
-
-def mark_question_as_used(redis_connect, user_id, question):
-    """Отмечает вопрос как использованный."""
-    redis_connect.sadd(f"user:{user_id}:used_questions", question)
-
-
 def normalize_answer(text: str) -> str:
     """
     Нормализует ответ:

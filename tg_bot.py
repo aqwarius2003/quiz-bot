@@ -7,7 +7,7 @@ from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import ConversationHandler
 from telegram.ext import Updater, MessageHandler, Filters, CallbackContext, CommandHandler
 
-from quiz_logic import get_random_question, get_stored_question, get_answer, check_answer
+from quiz_logic import get_random_question, check_answer
 
 
 logger = logging.getLogger(__name__)
@@ -52,8 +52,9 @@ def give_up(update: Update, context: CallbackContext):
     db_connection = context.bot_data['redis_connection']
     user_id = f'tg-{update.message.chat_id}'
 
-    question = get_stored_question(db_connection, user_id)
-    answer = get_answer(db_connection, question) if question else None
+    # question = get_stored_question(db_connection, user_id)
+    question = db_connection.get(f"user:{user_id}:question")
+    answer = db_connection.hget("questions", question) if question else None
 
     if question and answer:
         update.message.reply_text(f'Правильный ответ:\n "{answer}"')
@@ -73,8 +74,8 @@ def handle_solution_attempt(update: Update, context: CallbackContext):
     db_connection = context.bot_data['redis_connection']
     user_id = f'tg-{update.message.chat_id}'
 
-    question = get_stored_question(db_connection, user_id)
-    correct_answer = get_answer(db_connection, question) if question else None
+    question = db_connection.get(f"user:{user_id}:question")
+    correct_answer = db_connection.hget("questions", question) if question else None
 
     if not question or not correct_answer:
         update.message.reply_text("Вы не получали вопрос. Нажмите 'Новый вопрос'.")

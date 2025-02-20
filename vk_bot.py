@@ -5,7 +5,7 @@ import redis
 from dotenv import load_dotenv
 from vk_api.longpoll import VkLongPoll, VkEventType
 import vk_api
-from quiz_logic import get_random_question, get_stored_question, get_answer, check_answer
+from quiz_logic import get_random_question, check_answer
 from vk_api.keyboard import VkKeyboard
 
 
@@ -52,8 +52,8 @@ def handle_new_question_request(vk, event, redis_connect):
 def give_up(vk, event, redis_connect):
     """Показывает правильный ответ и дает новый вопрос."""
     user_id = f'vk-{event.user_id}'
-    question = get_stored_question(redis_connect, user_id)
-    answer = get_answer(redis_connect, question) if question else None
+    question = redis_connect.get(f"user:{user_id}:question")
+    answer = redis_connect.hget("questions", question) if question else None
     if question and answer:
         send_message(vk, user_id, f'Правильный ответ:\n "{answer}"', create_vk_keyboard())
     else:
@@ -69,8 +69,8 @@ def handle_solution_attempt(vk, event, redis_connect):
     """Обрабатывает ответ пользователя."""
     user_answer = event.text
     user_id = f'vk-{event.user_id}'
-    question = get_stored_question(redis_connect, user_id)
-    correct_answer = get_answer(redis_connect, question) if question else None
+    question = redis_connect.get(f"user:{user_id}:question")
+    correct_answer = redis_connect.hget("questions", question) if question else None
     if not question or not correct_answer:
         send_message(vk, user_id, 'Не верный ответ или команда', create_vk_keyboard())
         return
