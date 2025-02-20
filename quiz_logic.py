@@ -6,8 +6,6 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-used_questions = set()
-
 
 def get_random_txt_file(folder):
     """Выбирает случайный .txt файл из папки."""
