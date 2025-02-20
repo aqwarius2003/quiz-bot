@@ -1,6 +1,5 @@
 import logging
 import os
-import random
 
 import redis
 from dotenv import load_dotenv
@@ -35,7 +34,7 @@ def start(update: Update, context: CallbackContext):
 def handle_new_question_request(update: Update, context: CallbackContext):
     """Выдает новый случайный вопрос пользователю и сохраняет его в Redis."""
     db_connection = context.bot_data['redis_connection']
-    user_id = update.message.chat_id
+    user_id = f'tg-{update.message.chat_id}'
 
     question, answer = get_random_question(db_connection, user_id)
 
@@ -50,7 +49,7 @@ def handle_new_question_request(update: Update, context: CallbackContext):
 def give_up(update: Update, context: CallbackContext):
     """Показывает правильный ответ, если пользователь сдается, и дает новый вопрос."""
     db_connection = context.bot_data['redis_connection']
-    user_id = update.message.chat_id
+    user_id = f'tg-{update.message.chat_id}'
 
     question = get_stored_question(db_connection, user_id)
     answer = get_answer(db_connection, question) if question else None
@@ -62,6 +61,7 @@ def give_up(update: Update, context: CallbackContext):
 
     return handle_new_question_request(update, context)
 
+
 def show_score(update: Update, context: CallbackContext):
     update.message.reply_text("Вы лидируете")
     return ANSWERING
@@ -70,7 +70,7 @@ def show_score(update: Update, context: CallbackContext):
 def handle_solution_attempt(update: Update, context: CallbackContext):
     user_answer = update.message.text
     db_connection = context.bot_data['redis_connection']
-    user_id = update.message.chat_id
+    user_id = f'tg-{update.message.chat_id}'
 
     # Получаем сохранённый вопрос и правильный ответ
     question = get_stored_question(db_connection, user_id)
@@ -90,7 +90,7 @@ def handle_solution_attempt(update: Update, context: CallbackContext):
 
 
 def setup_handlers(dispatcher):
-    """Настроить обработку команд и сообщений."""
+    """Обработка команд и сообщений."""
     conversation = ConversationHandler(
         entry_points=[MessageHandler(Filters.regex(r'^Новый вопрос$'), handle_new_question_request)],
         states={

@@ -36,7 +36,7 @@ def start_message(vk, user_id):
 
 def handle_new_question_request(vk, event, redis_connect):
     """Выдает новый случайный вопрос пользователю."""
-    user_id = event.user_id
+    user_id = f'vk-{event.user_id}'
     question, answer = get_random_question(redis_connect, user_id)
     if not question:
         send_message(vk, user_id, "Не удалось загрузить вопрос.", create_vk_keyboard())
@@ -46,7 +46,7 @@ def handle_new_question_request(vk, event, redis_connect):
 
 def give_up(vk, event, redis_connect):
     """Показывает правильный ответ и дает новый вопрос."""
-    user_id = event.user_id
+    user_id = f'vk-{event.user_id}'
     question = get_stored_question(redis_connect, user_id)
     answer = get_answer(redis_connect, question) if question else None
     if question and answer:
@@ -64,7 +64,7 @@ def show_score(vk, event):
 def handle_solution_attempt(vk, event, redis_connect):
     """Обрабатывает ответ пользователя."""
     user_answer = event.text
-    user_id = event.user_id
+    user_id = f'vk-{event.user_id}'
     question = get_stored_question(redis_connect, user_id)
     correct_answer = get_answer(redis_connect, question) if question else None
     if not question or not correct_answer:
