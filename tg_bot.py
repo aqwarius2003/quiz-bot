@@ -9,6 +9,7 @@ from telegram.ext import Updater, MessageHandler, Filters, CallbackContext, Comm
 
 from quiz_logic import get_random_question, get_stored_question, get_answer, check_answer
 
+
 logger = logging.getLogger(__name__)
 
 ANSWERING = 1
@@ -27,7 +28,7 @@ def start(update: Update, context: CallbackContext):
         'Нажмите "Новый вопрос", чтобы начать.',
         reply_markup=build_menu()
     )
-    context.user_data["last_question"] = None  # Сбрасываем текущий вопрос
+    context.user_data["last_question"] = None
     return ANSWERING
 
 
@@ -72,7 +73,6 @@ def handle_solution_attempt(update: Update, context: CallbackContext):
     db_connection = context.bot_data['redis_connection']
     user_id = f'tg-{update.message.chat_id}'
 
-    # Получаем сохранённый вопрос и правильный ответ
     question = get_stored_question(db_connection, user_id)
     correct_answer = get_answer(db_connection, question) if question else None
 
@@ -124,7 +124,6 @@ def main():
     logging.basicConfig(format="%(asctime)s %(levelname)s %(message)s", level=logging.INFO)
     logger.info("Бот запущен")
 
-    # Изначальная загрузка вопросов
     try:
         redis_connect = redis.Redis(
             host=redis_address,
@@ -132,15 +131,12 @@ def main():
             password=redis_password,
             decode_responses=True,
         )
-        # Удаляем все данные в Redis)
         redis_connect.flushall()
-        # Загружаем вопросы в память
         questions_and_answers = redis_connect.hgetall("questions")
 
         updater = Updater(tg_bot_token, use_context=True)
         dispatcher = updater.dispatcher
 
-        # Сохраняем Redis и вопросы в bot_data
         dispatcher.bot_data['redis_connection'] = redis_connect
         dispatcher.bot_data['questions_and_answers'] = questions_and_answers
 

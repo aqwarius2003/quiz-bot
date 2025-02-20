@@ -58,7 +58,6 @@ def give_up(vk, event, redis_connect):
         send_message(vk, user_id, f'Правильный ответ:\n "{answer}"', create_vk_keyboard())
     else:
         send_message(vk, user_id, "Я бот, который проводит викторину. Нажмите 'Новый вопрос'", create_vk_keyboard())
-    # handle_new_question_request(vk, event, redis_connect)  # Выводит впорос
 
 
 def show_score(vk, event):
