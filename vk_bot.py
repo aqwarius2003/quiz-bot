@@ -8,16 +8,19 @@ import vk_api
 from quiz_logic import get_random_question, get_stored_question, get_answer, check_answer
 from vk_api.keyboard import VkKeyboard
 
+
 logger = logging.getLogger(__name__)
+
 
 def send_message(vk, user_id, message, keyboard=None):
     """Отправляет сообщение пользователю."""
     vk.messages.send(
         user_id=user_id,
         message=message,
-        random_id=random.randint(1, 10**6),
+        random_id=random.randint(1, 10 ** 6),
         keyboard=keyboard.get_keyboard() if keyboard else None
     )
+
 
 def create_vk_keyboard():
     """Создает клавиатуру ВКонтакте."""
@@ -31,7 +34,9 @@ def create_vk_keyboard():
 
 def start_message(vk, user_id):
     """Отправляет приветственное сообщение."""
-    send_message(vk, user_id, "Здравствуйте!\nЯ бот, который проведет для вас викторину.\nНажмите 'Новый вопрос', чтобы начать.", create_vk_keyboard())
+    send_message(vk, user_id,
+                 "Здравствуйте!\nЯ бот, который проведет для вас викторину.\nНажмите 'Новый вопрос', чтобы начать.",
+                 create_vk_keyboard())
 
 
 def handle_new_question_request(vk, event, redis_connect):
@@ -75,8 +80,10 @@ def handle_solution_attempt(vk, event, redis_connect):
     else:
         send_message(vk, user_id, 'Неправильно. Попробуйте ещё раз или нажмите "Сдаться".', create_vk_keyboard())
 
+
 def main():
     """Запуск бота."""
+
     load_dotenv()
     try:
         vk_token = os.environ['VK_API_KEY']
@@ -99,20 +106,27 @@ def main():
         vk_session = vk_api.VkApi(token=vk_token)
         vk = vk_session.get_api()
         longpoll = VkLongPoll(vk_session)
+
+        command_handlers = {
+            "Привет": start_message,
+            "start": start_message,
+            "Новый вопрос": handle_new_question_request,
+            "Сдаться": give_up,
+            "Мой счет": show_score
+        }
+
         for event in longpoll.listen():
-            if event.type == VkEventType.MESSAGE_NEW and event.to_me:
-                if event.text in ["Привет", "start"]:
-                    start_message(vk, event.user_id)
-                elif event.text == "Новый вопрос":
-                    handle_new_question_request(vk, event, redis_connect)
-                elif event.text == "Сдаться":
-                    give_up(vk, event, redis_connect)
-                elif event.text == "Мой счет":
-                    show_score(vk, event)
-                else:
-                    handle_solution_attempt(vk, event, redis_connect)
+            if not (event.type == VkEventType.MESSAGE_NEW and event.to_me):
+                continue
+            handler = command_handlers.get(event.text)
+            if handler:
+                handler(vk, event, redis_connect)
+            else:
+                handle_solution_attempt(vk, event, redis_connect)
+
     except Exception as e:
         logger.exception(e)
+
 
 if __name__ == '__main__':
     main()
