@@ -8,16 +8,19 @@ import vk_api
 from quiz_logic import get_random_question, get_stored_question, get_answer, check_answer
 from vk_api.keyboard import VkKeyboard
 
+
 logger = logging.getLogger(__name__)
+
 
 def send_message(vk, user_id, message, keyboard=None):
     """Отправляет сообщение пользователю."""
     vk.messages.send(
         user_id=user_id,
         message=message,
-        random_id=random.randint(1, 10**6),
+        random_id=random.randint(1, 10 ** 6),
         keyboard=keyboard.get_keyboard() if keyboard else None
     )
+
 
 def create_vk_keyboard():
     """Создает клавиатуру ВКонтакте."""
@@ -31,7 +34,9 @@ def create_vk_keyboard():
 
 def start_message(vk, user_id):
     """Отправляет приветственное сообщение."""
-    send_message(vk, user_id, "Здравствуйте!\nЯ бот, который проведет для вас викторину.\nНажмите 'Новый вопрос', чтобы начать.", create_vk_keyboard())
+    send_message(vk, user_id,
+                 "Здравствуйте!\nЯ бот, который проведет для вас викторину.\nНажмите 'Новый вопрос', чтобы начать.",
+                 create_vk_keyboard())
 
 
 def handle_new_question_request(vk, event, redis_connect):
@@ -75,6 +80,7 @@ def handle_solution_attempt(vk, event, redis_connect):
     else:
         send_message(vk, user_id, 'Неправильно. Попробуйте ещё раз или нажмите "Сдаться".', create_vk_keyboard())
 
+
 def main():
     """Запуск бота."""
     load_dotenv()
@@ -86,7 +92,7 @@ def main():
     except KeyError as error:
         logger.error(f'Переменные окружения не найдены. Ошибка: {error}')
         return
-    logging.basicConfig(format="%(asctime)s %(levelname)s %(message)s", level=logging.INFO)
+
     logger.info("VK бот запущен")
     try:
         redis_connect = redis.Redis(
@@ -114,5 +120,8 @@ def main():
     except Exception as e:
         logger.exception(e)
 
+
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
+    logger.setLevel(logging.DEBUG)
     main()

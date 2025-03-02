@@ -4,11 +4,7 @@ import logging
 from urllib.request import urlopen, Request
 from urllib.error import URLError
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[logging.StreamHandler()]
-)
+logger = logging.getLogger(__name__)
 
 
 def download_archive(url, save_path):
@@ -23,7 +19,7 @@ def download_archive(url, save_path):
         with open(save_path, 'wb') as f:
             f.write(response.read())
 
-    logging.info(f"Архив успешно загружен: {save_path}")
+    logger.info(f"Архив успешно загружен: {save_path}")
 
 
 def unzip_archive(zip_file_path, output_folder):
@@ -31,7 +27,8 @@ def unzip_archive(zip_file_path, output_folder):
     os.makedirs(output_folder, exist_ok=True)
     with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
         zip_ref.extractall(output_folder)
-    logging.info(f'Архив {zip_file_path} распакован в {output_folder}')
+    logger.info(f'Архив {zip_file_path} распакован в {output_folder}')
+
 
 def main():
     url_archive = 'https://dvmn.org/media/modules_dist/quiz-questions.zip'
@@ -40,18 +37,19 @@ def main():
     output_folder = os.path.join(current_directory, 'data', 'QA_FOLDER')
 
     try:
-        logging.info("Начало загрузки архива...")
+        logger.info("Начало загрузки архива...")
         download_archive(url_archive, zip_file_path)
 
-        logging.info("Начало распаковки архива...")
+        logger.info("Начало распаковки архива...")
         unzip_archive(zip_file_path, output_folder)
 
-        logging.info("Обработка завершена успешно")
+        logger.info("Обработка завершена успешно")
 
     except Exception as e:
-        logging.error(f"Ошибка выполнения: {type(e).__name__} - {str(e)}")
-    finally:
-        logging.info("Работа программы завершена")
+        logger.exception(f"Ошибка выполнения: {type(e).__name__} - {str(e)}")
+
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
+    logger.setLevel(logging.DEBUG)
     main()

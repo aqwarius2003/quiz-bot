@@ -20,7 +20,6 @@ def get_random_txt_file(folder):
     return os.path.join(folder, random_file)
 
 
-
 def format_text(text: str) -> str:
     """Сохраняет переносы строк, если текст полностью прописными буквами (стихи), иначе убирает переносы."""
     lines = text.splitlines()
@@ -28,6 +27,7 @@ def format_text(text: str) -> str:
         return text  # Сохраняем исходный формат
     else:
         return " ".join(line.strip() for line in lines)
+
 
 def preparing_questions(filename) -> dict:
     """Читает вопросы и ответы из указанного текстового файла и возвращает их в виде словаря."""

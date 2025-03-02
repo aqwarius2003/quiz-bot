@@ -62,6 +62,7 @@ def give_up(update: Update, context: CallbackContext):
 
     return handle_new_question_request(update, context)
 
+
 def show_score(update: Update, context: CallbackContext):
     update.message.reply_text("Вы лидируете")
     return ANSWERING
@@ -121,9 +122,6 @@ def main():
         logger.error(f'Переменные окружения не найдены. Ошибка: {error}')
         return
 
-    logging.basicConfig(format="%(asctime)s %(levelname)s %(message)s", level=logging.INFO)
-    logger.info("Бот запущен")
-
     # Изначальная загрузка вопросов
     try:
         redis_connect = redis.Redis(
@@ -132,7 +130,7 @@ def main():
             password=redis_password,
             decode_responses=True,
         )
-        # Удаляем все данные в Redis)
+        # Удаляем все данные в Redis
         redis_connect.flushall()
         # Загружаем вопросы в память
         questions_and_answers = redis_connect.hgetall("questions")
@@ -145,7 +143,7 @@ def main():
         dispatcher.bot_data['questions_and_answers'] = questions_and_answers
 
         setup_handlers(dispatcher)
-
+        logger.info("Бот запущен")
         updater.start_polling()
         updater.idle()
     except Exception as e:
@@ -153,4 +151,6 @@ def main():
 
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
+    logger.setLevel(logging.DEBUG)
     main()
