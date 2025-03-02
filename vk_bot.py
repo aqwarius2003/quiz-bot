@@ -5,7 +5,7 @@ import redis
 from dotenv import load_dotenv
 from vk_api.longpoll import VkLongPoll, VkEventType
 import vk_api
-from quiz_logic import get_random_question, get_stored_question, get_answer, check_answer
+from quiz_logic import get_random_question, check_answer
 from vk_api.keyboard import VkKeyboard
 
 
@@ -41,7 +41,7 @@ def start_message(vk, user_id):
 
 def handle_new_question_request(vk, event, redis_connect):
     """Выдает новый случайный вопрос пользователю."""
-    user_id = event.user_id
+    user_id = f'vk-{event.user_id}'
     question, answer = get_random_question(redis_connect, user_id)
     if not question:
         send_message(vk, user_id, "Не удалось загрузить вопрос.", create_vk_keyboard())
@@ -51,14 +51,13 @@ def handle_new_question_request(vk, event, redis_connect):
 
 def give_up(vk, event, redis_connect):
     """Показывает правильный ответ и дает новый вопрос."""
-    user_id = event.user_id
-    question = get_stored_question(redis_connect, user_id)
-    answer = get_answer(redis_connect, question) if question else None
+    user_id = f'vk-{event.user_id}'
+    question = redis_connect.get(f"user:{user_id}:question")
+    answer = redis_connect.hget("questions", question) if question else None
     if question and answer:
         send_message(vk, user_id, f'Правильный ответ:\n "{answer}"', create_vk_keyboard())
     else:
         send_message(vk, user_id, "Я бот, который проводит викторину. Нажмите 'Новый вопрос'", create_vk_keyboard())
-    # handle_new_question_request(vk, event, redis_connect)  # Выводит впорос
 
 
 def show_score(vk, event):
@@ -69,9 +68,9 @@ def show_score(vk, event):
 def handle_solution_attempt(vk, event, redis_connect):
     """Обрабатывает ответ пользователя."""
     user_answer = event.text
-    user_id = event.user_id
-    question = get_stored_question(redis_connect, user_id)
-    correct_answer = get_answer(redis_connect, question) if question else None
+    user_id = f'vk-{event.user_id}'
+    question = redis_connect.get(f"user:{user_id}:question")
+    correct_answer = redis_connect.hget("questions", question) if question else None
     if not question or not correct_answer:
         send_message(vk, user_id, 'Не верный ответ или команда', create_vk_keyboard())
         return
@@ -83,6 +82,7 @@ def handle_solution_attempt(vk, event, redis_connect):
 
 def main():
     """Запуск бота."""
+
     load_dotenv()
     try:
         vk_token = os.environ['VK_API_KEY']
@@ -105,18 +105,24 @@ def main():
         vk_session = vk_api.VkApi(token=vk_token)
         vk = vk_session.get_api()
         longpoll = VkLongPoll(vk_session)
+
+        command_handlers = {
+            "Привет": start_message,
+            "start": start_message,
+            "Новый вопрос": handle_new_question_request,
+            "Сдаться": give_up,
+            "Мой счет": show_score
+        }
+
         for event in longpoll.listen():
-            if event.type == VkEventType.MESSAGE_NEW and event.to_me:
-                if event.text in ["Привет", "start"]:
-                    start_message(vk, event.user_id)
-                elif event.text == "Новый вопрос":
-                    handle_new_question_request(vk, event, redis_connect)
-                elif event.text == "Сдаться":
-                    give_up(vk, event, redis_connect)
-                elif event.text == "Мой счет":
-                    show_score(vk, event)
-                else:
-                    handle_solution_attempt(vk, event, redis_connect)
+            if not (event.type == VkEventType.MESSAGE_NEW and event.to_me):
+                continue
+            handler = command_handlers.get(event.text)
+            if handler:
+                handler(vk, event, redis_connect)
+            else:
+                handle_solution_attempt(vk, event, redis_connect)
+
     except Exception as e:
         logger.exception(e)
 

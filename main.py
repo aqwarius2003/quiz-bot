@@ -9,9 +9,7 @@ logger = logging.getLogger(__name__)
 
 def download_archive(url, save_path):
     """Загружает ZIP-архив по указанному URL и сохраняет его на диск."""
-    os.makedirs(os.path.dirname(save_path), exist_ok=True)
     req = Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-
     with urlopen(req, timeout=10) as response:
         if response.status != 200:
             raise URLError(f"HTTP Error {response.status}")
@@ -19,15 +17,11 @@ def download_archive(url, save_path):
         with open(save_path, 'wb') as f:
             f.write(response.read())
 
-    logger.info(f"Архив успешно загружен: {save_path}")
-
 
 def unzip_archive(zip_file_path, output_folder):
     """Распаковывает ZIP-архив в указанную папку."""
-    os.makedirs(output_folder, exist_ok=True)
     with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
         zip_ref.extractall(output_folder)
-    logger.info(f'Архив {zip_file_path} распакован в {output_folder}')
 
 
 def main():
@@ -37,15 +31,22 @@ def main():
     output_folder = os.path.join(current_directory, 'data', 'QA_FOLDER')
 
     try:
-        logger.info("Начало загрузки архива...")
+        os.makedirs(os.path.dirname(zip_file_path), exist_ok=True)
+        os.makedirs(output_folder, exist_ok=True)
+
+        logging.info("Начало загрузки архива...")
         download_archive(url_archive, zip_file_path)
 
         logger.info("Начало распаковки архива...")
         unzip_archive(zip_file_path, output_folder)
 
-        logger.info("Обработка завершена успешно")
+        logger.info("Архив {zip_file_path} успешно распакован в {output_folder}")
 
     except Exception as e:
+        logger.error(f"Ошибка при скачивании или распаковке архива: {type(e).__name__} - {str(e)}")
+    finally:
+        logger.info(f'Архив {zip_file_path} успешно распакован в {output_folder}')
+
         logger.exception(f"Ошибка выполнения: {type(e).__name__} - {str(e)}")
 
 

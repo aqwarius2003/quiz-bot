@@ -1,6 +1,5 @@
 import logging
 import os
-import random
 
 import redis
 from dotenv import load_dotenv
@@ -8,7 +7,8 @@ from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import ConversationHandler
 from telegram.ext import Updater, MessageHandler, Filters, CallbackContext, CommandHandler
 
-from quiz_logic import get_random_question, get_stored_question, get_answer, check_answer
+from quiz_logic import get_random_question, check_answer
+
 
 logger = logging.getLogger(__name__)
 
@@ -28,14 +28,14 @@ def start(update: Update, context: CallbackContext):
         'Нажмите "Новый вопрос", чтобы начать.',
         reply_markup=build_menu()
     )
-    context.user_data["last_question"] = None  # Сбрасываем текущий вопрос
+    context.user_data["last_question"] = None
     return ANSWERING
 
 
 def handle_new_question_request(update: Update, context: CallbackContext):
     """Выдает новый случайный вопрос пользователю и сохраняет его в Redis."""
     db_connection = context.bot_data['redis_connection']
-    user_id = update.message.chat_id
+    user_id = f'tg-{update.message.chat_id}'
 
     question, answer = get_random_question(db_connection, user_id)
 
@@ -50,10 +50,11 @@ def handle_new_question_request(update: Update, context: CallbackContext):
 def give_up(update: Update, context: CallbackContext):
     """Показывает правильный ответ, если пользователь сдается, и дает новый вопрос."""
     db_connection = context.bot_data['redis_connection']
-    user_id = update.message.chat_id
+    user_id = f'tg-{update.message.chat_id}'
 
-    question = get_stored_question(db_connection, user_id)
-    answer = get_answer(db_connection, question) if question else None
+    # question = get_stored_question(db_connection, user_id)
+    question = db_connection.get(f"user:{user_id}:question")
+    answer = db_connection.hget("questions", question) if question else None
 
     if question and answer:
         update.message.reply_text(f'Правильный ответ:\n "{answer}"')
@@ -71,11 +72,10 @@ def show_score(update: Update, context: CallbackContext):
 def handle_solution_attempt(update: Update, context: CallbackContext):
     user_answer = update.message.text
     db_connection = context.bot_data['redis_connection']
-    user_id = update.message.chat_id
+    user_id = f'tg-{update.message.chat_id}'
 
-    # Получаем сохранённый вопрос и правильный ответ
-    question = get_stored_question(db_connection, user_id)
-    correct_answer = get_answer(db_connection, question) if question else None
+    question = db_connection.get(f"user:{user_id}:question")
+    correct_answer = db_connection.hget("questions", question) if question else None
 
     if not question or not correct_answer:
         update.message.reply_text("Вы не получали вопрос. Нажмите 'Новый вопрос'.")
@@ -91,7 +91,7 @@ def handle_solution_attempt(update: Update, context: CallbackContext):
 
 
 def setup_handlers(dispatcher):
-    """Настроить обработку команд и сообщений."""
+    """Обработка команд и сообщений."""
     conversation = ConversationHandler(
         entry_points=[MessageHandler(Filters.regex(r'^Новый вопрос$'), handle_new_question_request)],
         states={
@@ -122,7 +122,6 @@ def main():
         logger.error(f'Переменные окружения не найдены. Ошибка: {error}')
         return
 
-    # Изначальная загрузка вопросов
     try:
         redis_connect = redis.Redis(
             host=redis_address,
@@ -130,15 +129,12 @@ def main():
             password=redis_password,
             decode_responses=True,
         )
-        # Удаляем все данные в Redis
         redis_connect.flushall()
-        # Загружаем вопросы в память
         questions_and_answers = redis_connect.hgetall("questions")
 
         updater = Updater(tg_bot_token, use_context=True)
         dispatcher = updater.dispatcher
 
-        # Сохраняем Redis и вопросы в bot_data
         dispatcher.bot_data['redis_connection'] = redis_connect
         dispatcher.bot_data['questions_and_answers'] = questions_and_answers
 
