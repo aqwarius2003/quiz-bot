@@ -10,6 +10,10 @@ from telegram.ext import Updater, MessageHandler, Filters, CallbackContext, Comm
 from quiz_logic import get_random_question, check_answer
 
 
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(levelname)s - %(message)s')
+
 logger = logging.getLogger(__name__)
 
 ANSWERING = 1
@@ -147,6 +151,4 @@ def main():
 
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
-    logger.setLevel(logging.DEBUG)
     main()

@@ -9,6 +9,11 @@ from quiz_logic import get_random_question, check_answer
 from vk_api.keyboard import VkKeyboard
 
 
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -128,6 +133,4 @@ def main():
 
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
-    logger.setLevel(logging.DEBUG)
     main()

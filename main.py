@@ -4,6 +4,11 @@ import logging
 from urllib.request import urlopen, Request
 from urllib.error import URLError
 
+logging.basicConfig(
+    level=logging.ERROR,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -34,23 +39,15 @@ def main():
         os.makedirs(os.path.dirname(zip_file_path), exist_ok=True)
         os.makedirs(output_folder, exist_ok=True)
 
-        logging.info("Начало загрузки архива...")
         download_archive(url_archive, zip_file_path)
 
-        logger.info("Начало распаковки архива...")
         unzip_archive(zip_file_path, output_folder)
 
         logger.info("Архив {zip_file_path} успешно распакован в {output_folder}")
 
     except Exception as e:
         logger.error(f"Ошибка при скачивании или распаковке архива: {type(e).__name__} - {str(e)}")
-    finally:
-        logger.info(f'Архив {zip_file_path} успешно распакован в {output_folder}')
-
-        logger.exception(f"Ошибка выполнения: {type(e).__name__} - {str(e)}")
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
-    logger.setLevel(logging.DEBUG)
     main()
